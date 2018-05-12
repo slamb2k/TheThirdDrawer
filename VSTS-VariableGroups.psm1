@@ -1,97 +1,14 @@
-﻿<# 
+<# 
 #
 #  EXAMPLE USAGE
 #  -------------
 #
-#  Copy-VariableGroup -Uri "https://blah.visualstudio.com/Stuff%20and%20Bits/" `
-#                   -VariableGroupFrom "KnightRider Load Environment Configuration" `
-#                   -VariableGroupTo "KnightRider Special Test Environment Configuration" `
-#                   -PersonalAccessToken "tbs55zas7c2yx2nhdjxwro5vieqq4hdcq4mgrpf6mtr5txlvxnmq"
+#  Copy-VariableGroup -Uri "https://somecompany.visualstudio.com/SomeProject/" `
+#                   -VariableGroupFrom "DeploymentVariables-Prod" `
+#                   -VariableGroupTo "DeploymentVariables-Test" `
+#                   -PersonalAccessToken "segizppinssssm3olvdccb2phj34ru7icdhm2utq6doyutyq"
 #
 #>
-
-
-<# 
- .Synopsis
-  Adds a new variable group variable to a VSTS project.
-
- .Description
-  Adds a new variable group variable to a VSTS project. If the variable group doesn't exist, it will be created.
-#>
-function Add-VariableGroupVariable()
-{
-    [CmdletBinding()]
-    param
-    (
-        [string][parameter(Mandatory = $true)]$Uri,
-        [string][parameter(Mandatory = $true)]$VariableGroupName,
-        [string]$VariableGroupDescription,
-        [string][parameter(Mandatory = $true, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)][Alias("name")]$VariableName,
-        [string][parameter(Mandatory = $true, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)][Alias("value")]$VariableValue,
-        [bool][parameter(ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]$Secret,
-        [string][parameter(Mandatory = $false)]$PersonalAccessToken = [String]::Empty,
-        [switch]$Reset,
-        [switch]$Force
-    )
-    BEGIN
-    {
-        $ErrorActionPreference = "Stop"
-
-        Write-Verbose "Entering script $($MyInvocation.MyCommand.Name)"
-        Write-Verbose "Parameter Values"
- 
-        $PSBoundParameters.Keys | ForEach-Object { Write-Verbose "$_ = '$($PSBoundParameters[$_])'" }
-        $method = "Post"
-        $variableGroup = Get-VariableGroup $Uri $VariableGroupName $PersonalAccessToken
- 
-        if($variableGroup)
-        {
-            Write-Verbose "Variable group $VariableGroupName exists."
- 
-            if ($Reset)
-            {
-                Write-Verbose "Reset = $Reset : remove all variables."
-                foreach($prop in $variableGroup.variables.PSObject.Properties.Where{$_.MemberType -eq "NoteProperty"})
-                {
-                    $variableGroup.variables.PSObject.Properties.Remove($prop.Name)
-                }
-            }
- 
-            $id = $variableGroup.id
-            $restApi = "$($Uri)/_apis/distributedtask/variablegroups/$id"
-            $method = "Put"
-        }
-        else
-        {
-            Write-Verbose "Variable group $VariableGroupName not found."
-            if ($Force)
-            {
-                Write-Verbose "Create variable group $VariableGroupName."
-                $variableGroup = @{name=$VariableGroupName;description=$VariableGroupDescription;variables=New-Object PSObject;}
-                $restApi = "$($Uri)/_apis/distributedtask/variablegroups?api-version=3.2-preview.1"
-            }
-            else
-            {
-                throw "Cannot add variable to nonexisting variable group $VariableGroupName; use the -Force switch to create the variable group."
-            }
-        }
-    }
-    PROCESS
-    {
-        Write-Verbose "Adding $VariableName with value $VariableValue..."
-        $variableGroup.variables | Add-Member -Name $VariableName -MemberType NoteProperty -Value @{value=$VariableValue;isSecret=$Secret} -Force
-    }
-    END
-    {
-        Write-Verbose "Persist variable group $VariableGroupName."
-        $body = $variableGroup | ConvertTo-Json -Depth 10 -Compress
-        $headers = @{"Accept" = "application/json;api-version=3.2-preview.1"}
-
-        $response = Invoke-VSTSMethod -Uri $Uri -Method "PUT" -Body $body -Headers $headers
-        
-        return $response.id
-    }
-}
 
 <# 
  .Synopsis
@@ -100,8 +17,7 @@ function Add-VariableGroupVariable()
  .Description
   Gets a variable group from VSTS given a project and name. The variable group will contain a collection of all of the contained parameters.
 #>
-function Get-VariableGroup()
-{
+function Get-VariableGroup() {
     [CmdletBinding()]
     param
     (
@@ -109,23 +25,20 @@ function Get-VariableGroup()
         [string][parameter(Mandatory = $true)]$Name,
         [string][parameter(Mandatory = $false)]$PersonalAccessToken = [String]::Empty
     )
-    BEGIN
-    {
+    BEGIN {
         $ErrorActionPreference = "Stop"
 
         Write-Verbose "Entering script $($MyInvocation.MyCommand.Name)"
         Write-Verbose "Parameter Values"
         $PSBoundParameters.Keys | ForEach-Object { Write-Verbose "$_ = '$($PSBoundParameters[$_])'" }
     }
-    PROCESS
-    {
-        $Uri = $Uri.TrimEnd("/")
-        $Uri = "$($Uri)/_apis/distributedtask/variablegroups"
+    PROCESS {
+        $Uri = "$($Uri.TrimEnd("/"))/_apis/distributedtask/variablegroups"
 
         $variableGroups = Invoke-VSTSMethod -Uri $Uri -PersonalAccessToken $PersonalAccessToken
         
-        foreach($variableGroup in $variableGroups.value){
-            if ($variableGroup.name -like $Name){
+        foreach ($variableGroup in $variableGroups.value) {
+            if ($variableGroup.name -like $Name) {
                 Write-Verbose "Variable group $Name found."
                 return $variableGroup
             }
@@ -143,8 +56,7 @@ function Get-VariableGroup()
  .Description
   A helper method for calling the VSTS REST API.
 #>
-function Invoke-VSTSMethod()
-{
+function Invoke-VSTSMethod() {
     param
     (
         [string][parameter(Mandatory = $true)]$Uri,
@@ -157,41 +69,29 @@ function Invoke-VSTSMethod()
 
     $ErrorActionPreference = "Stop"
 
-    $RestParams = @{            
-        Method = $Method            
+    $RestParams = @{      
+        Uri         = $Uri.TrimEnd("/")      
         ContentType = $ContentType  
-        Headers = $Headers                  
+        Method      = $Method            
+        Headers     = $Headers                  
     }        
 
-    if ($Body)
-    {
+    if ($Body) {
         $RestParams.Add("Body", $Body);
     }
 
-    if ($PersonalAccessToken)
-    {
+    if ($PersonalAccessToken) {
         $SecurityContext = "PAT"
         $basicAuth = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(":$PersonalAccessToken"))
         $RestParams.Headers["Authorization"] = ("Basic {0}" -f $basicAuth)
     }
-    else
-    {
+    else {
         $SecurityContext = "Default"
         $RestParams.Add("UseDefaultCredentials", $true)
     }
 
-    $Uri = $Uri.TrimEnd("/")
-
     Write-Verbose "Invoking VSTS API [$SecurityContext]: $variableGroup"
-    $Result = Invoke-RestMethod $Uri @RestParams -ErrorVariable RestError -ErrorAction SilentlyContinue
-        
-    if ($RestError)
-    {
-        $HttpStatusCode = $RestError.ErrorRecord.Exception.Response.StatusCode.value__
-        $HttpStatusDescription = $RestError.ErrorRecord.Exception.Response.StatusDescription
-    
-        Throw "Http Status Code: $($HttpStatusCode) `nHttp Status Description: $($HttpStatusDescription)"
-    }
+    $Result = Invoke-RestMethod @RestParams
 
     return $Result
 }
@@ -203,8 +103,7 @@ function Invoke-VSTSMethod()
  .Description
   Copies an existing variable group from VSTS to a new one given a project and variable group name. If the new variable group already exists it will be updated.
 #>
-function Copy-VariableGroup()
-{
+function Copy-VariableGroup() {
     [CmdletBinding()]
     param
     (
@@ -213,46 +112,31 @@ function Copy-VariableGroup()
         [string][parameter(Mandatory = $true)]$VariableGroupTo,
         [string][parameter(Mandatory = $false)]$PersonalAccessToken = [String]::Empty
     )
-    BEGIN
-    {
+    BEGIN {
         $ErrorActionPreference = "Stop"
 
         Write-Verbose "Entering script $($MyInvocation.MyCommand.Name)"
         Write-Verbose "Parameter Values"
         $PSBoundParameters.Keys | ForEach-Object { Write-Verbose "$_ = '$($PSBoundParameters[$_])'" }
     }
-    PROCESS
-    {
-        $basicAuth = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(":$PersonalAccessToken"))
-        
+    PROCESS {
+        # Get the variable group to copy
+        Write-Host "`nCopying variable group from: $VariableGroupFrom"
         $variableGroup = Get-VariableGroup $Uri $VariableGroupFrom $PersonalAccessToken
 
-        Write-Host "`nCopying variable group from: $VariableGroupFrom"
+        #Create the new variable group
+        Write-Host "`nCopying variable group to: $VariableGroupTo"
+        $newVariableGroup = @{name = $VariableGroupTo; description = $variableGroup.Description; variables = $variableGroup.variables; }
 
-        foreach ($variable in $variableGroup) 
-        {
-            $properties = $variable.variables | Get-Member -MemberType NoteProperty
-            
-            foreach ($property in $properties)
-            {
-                $propertyName = $property.Name
-                $propValue = $variable.variables | Select-Object -ExpandProperty $property.Name
+        Write-Verbose "Persist variable group $VariableGroupTo."
+        $body = $newVariableGroup | ConvertTo-Json -Depth 10 -Compress
+        $headers = @{ } #"Accept" = "application/json;api-version=5.0-preview.1"}
+        $Uri = "$($Uri.TrimEnd("/"))/_apis/distributedtask/variablegroups?api-version=5.0-preview.1"        
 
-                Add-VariableGroupVariable -Uri $Uri `
-                                            -VariableGroupName $VariableGroupTo `
-                                            -VariableName $property.Name `
-                                            -VariableValue $propValue.value `
-                                            -PersonalAccessToken $PersonalAccessToken `
-                                            -Force `
-                                            | Out-Null
+        $response = Invoke-VSTSMethod -Uri $Uri -Method "POST" -Body $body -Headers $headers -PersonalAccessToken $PersonalAccessToken
 
-                Write-Host "Cloned child variable: $propertyName"
-            }
-        }
-
-        Write-Host "Variable group copied to: $VariableGroupTo"
+        Write-Verbose "Variable group $VariableGroupTo created with id: $response.id."
         Write-Host "Copy operation complete."
     }
     END { }
 }
-
