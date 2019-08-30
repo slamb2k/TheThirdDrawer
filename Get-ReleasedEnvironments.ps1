@@ -3,13 +3,14 @@
 
 # Account Details
 $devopsAccount = "azure_devops_instance_name"
+$devopsProject = "azure_devops_project_name"
 $pat = "pat_key"
 
 # Authenticate with a PAT
 Set-VSTeamAccount -Account $devopsAccount -PersonalAccessToken $pat
 
 # Get all of the releases from the SafeScript project and the stage/environments release
-$Releases = Get-VSTeamRelease -ProjectName SafeScript -expand environments
+$Releases = Get-VSTeamRelease -ProjectName $devopsProject -expand environments
 
 # Make some pretty headings
 $ReleaseDefinition = @{l="Definition";e={$_.definitionName}}
