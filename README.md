@@ -1,0 +1,1 @@
+[![Board Status](https://silamb.visualstudio.com/2368c65c-0fde-4d17-8599-d0fba2dc5f56/1f9df50d-82db-4a5b-8618-d1b8ce2e12db/_apis/work/boardbadge/8ab2de51-318c-4ee5-8298-3dc015d873bd)](https://silamb.visualstudio.com/2368c65c-0fde-4d17-8599-d0fba2dc5f56/_boards/board/t/1f9df50d-82db-4a5b-8618-d1b8ce2e12db/Microsoft.RequirementCategory)
